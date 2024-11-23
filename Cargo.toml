@@ -8,9 +8,9 @@ gpui = { git = "https://github.com/zed-industries/zed" }
 http_client = { git = "https://github.com/zed-industries/zed" }
 reqwest_client = { git = "https://github.com/zed-industries/zed" }
 anyhow = "1"
-jupyter-protocol = "0.3.0"
-jupyter-websocket-client = "0.5.0"
-mybinder = "0.1.0"
+jupyter-protocol = { path = "../runtimed/crates/jupyter-protocol" }
+jupyter-websocket-client = { path = "../runtimed/crates/jupyter-websocket-client" }
+mybinder = { path = "../runtimed/crates/mybinder" }
 futures = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
