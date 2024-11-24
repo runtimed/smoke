@@ -1,16 +1,11 @@
-name: PR check
+name: Smokey the Binder
 
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
-
-env:
-  CARGO_TERM_COLOR: always
+  schedule:
+    - cron: "37 * * * *"
 
 jobs:
-  build:
+  collect_and_commit:
     runs-on: ubuntu-latest
 
     steps:
