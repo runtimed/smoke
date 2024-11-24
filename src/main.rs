@@ -137,7 +137,9 @@ fn app_main(cx: &mut AppContext) {
         })
         .detach();
 
-        cx.background_executor().timer(Duration::from_secs(1)).await;
+        cx.background_executor()
+            .timer(Duration::from_millis(500))
+            .await;
 
         w.send(
             ExecuteRequest {
@@ -152,7 +154,13 @@ fn app_main(cx: &mut AppContext) {
         )
         .await?;
 
-        cx.background_executor().timer(Duration::from_secs(1)).await;
+        cx.background_executor()
+            .timer(Duration::from_millis(500))
+            .await;
+
+        anyhow::bail!("Failed to execute code");
+
+        #[allow(unreachable_code)]
         Ok(())
     })
     .detach_and_log_err(cx);
