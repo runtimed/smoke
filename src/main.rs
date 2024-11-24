@@ -1,3 +1,4 @@
+use colored::*;
 use std::{sync::Arc, time::Duration};
 
 use futures::{
@@ -18,10 +19,8 @@ fn app_main(cx: &mut AppContext) {
     );
     cx.set_http_client(http_client.clone());
 
-    println!("Kicking off binder build");
-
     cx.spawn(|cx: AsyncAppContext| async move {
-        println!("Starting binder build");
+        println!("{}", "📦 Starting binder build".bold());
         // Connect to binder
         let response = http_client
             .get(
@@ -31,7 +30,10 @@ fn app_main(cx: &mut AppContext) {
             )
             .await?;
 
-        println!("Connected to Binder, processing response...");
+        println!(
+            "{}",
+            "🔗 Connected to Binder, processing response...".bright_green()
+        );
 
         let reader = BufReader::new(response.into_body());
         let mut stream = reader.lines().boxed();
@@ -47,7 +49,7 @@ fn app_main(cx: &mut AppContext) {
                     match parse_binder_build_response(&line) {
                         Ok(build_response) => match build_response.phase {
                             mybinder::Phase::Ready { url, token, .. } => {
-                                println!("Binder is ready! URL: {}, Token: {}", url, token);
+                                println!("Binder is ready! URL: {}", url);
 
                                 remote_server = Some(RemoteServer {
                                     base_url: url,
@@ -57,11 +59,55 @@ fn app_main(cx: &mut AppContext) {
                                 break;
                             }
                             mybinder::Phase::Failed { message } => {
-                                println!("Binder failed: {:?}", message);
+                                println!(
+                                    "😲 Binder failed: {:?}",
+                                    message.as_ref().map(|m| m.bright_red())
+                                );
                                 break;
                             }
-                            _ => {
-                                println!("Current phase: {:?}", build_response.phase);
+                            mybinder::Phase::Built {
+                                message,
+                                image_name,
+                            } => {
+                                println!(
+                                    "📦 Binder built: {}",
+                                    message.as_ref().unwrap_or(&"".to_string()).bright_green()
+                                );
+
+                                if let Some(image_name) = image_name {
+                                    println!("📦 Binder image name: {}", image_name.bright_green());
+                                }
+                            }
+                            mybinder::Phase::Launching { message } => {
+                                println!(
+                                    "🚀 Binder launching: {}",
+                                    message.as_ref().unwrap_or(&"".to_string()).bright_green()
+                                );
+                            }
+                            mybinder::Phase::Waiting { message } => {
+                                println!(
+                                    "🕒 Binder waiting: {}",
+                                    message.as_ref().unwrap_or(&"".to_string()).bright_green()
+                                );
+                            }
+                            mybinder::Phase::Fetching { message } => {
+                                println!(
+                                    "📥 Binder fetching: {}",
+                                    message.as_ref().unwrap_or(&"".to_string()).bright_green()
+                                );
+                            }
+
+                            mybinder::Phase::Building { message } => {
+                                println!(
+                                    "📦 Binder building: {}",
+                                    message.as_ref().unwrap_or(&"".to_string()).bright_green()
+                                );
+                            }
+                            mybinder::Phase::Unknown { message } => {
+                                println!(
+                                    "🤷 Binder unknown: {}",
+                                    message.as_ref().unwrap_or(&"".to_string()).bright_green()
+                                );
                             }
                         },
                         Err(e) => {
@@ -119,14 +165,24 @@ fn app_main(cx: &mut AppContext) {
                             jupyter_protocol::JupyterMessageContent::ExecuteResult(
                                 execute_result,
                             ) => {
-                                println!("Got execute result: {:?}", execute_result);
+                                println!("💻 {:?}", execute_result.data.content);
 
                                 return cx.update(|cx| {
                                     cx.quit();
                                 });
                             }
+                            jupyter_protocol::JupyterMessageContent::Status(status) => {
+                                match status.execution_state {
+                                    jupyter_protocol::ExecutionState::Idle => {
+                                        println!("{}", "kernel idle".dimmed());
+                                    }
+                                    jupyter_protocol::ExecutionState::Busy => {
+                                        println!("{}", "kernel busy".bright_magenta());
+                                    }
+                                }
+                            }
                             _ => {
-                                dbg!(&message.content);
+                                // dbg!(&message.content);
                             }
                         }
                     }
