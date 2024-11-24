@@ -2,7 +2,7 @@ name: Smokey the Binder
 
 on:
   schedule:
-    - cron: "37 * * * *"
+    - cron: "7,37 * * * *"
 
 jobs:
   setup:
