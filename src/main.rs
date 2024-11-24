@@ -20,8 +20,6 @@ fn app_main(cx: &mut AppContext) {
     cx.set_http_client(http_client.clone());
 
     cx.spawn(|cx: AsyncAppContext| async move {
-        println!("{}", "📦 Starting binder build".bold());
-        // Connect to binder
         let response = http_client
             .get(
                 "https://mybinder.org/build/gh/binder-examples/conda_environment/HEAD",
@@ -32,7 +30,9 @@ fn app_main(cx: &mut AppContext) {
 
         println!(
             "{}",
-            "🔗 Connected to Binder, processing response...".bright_green()
+            "🔗 Connected to Binder, processing response..."
+                .bright_green()
+                .dimmed()
         );
 
         let reader = BufReader::new(response.into_body());
@@ -49,7 +49,9 @@ fn app_main(cx: &mut AppContext) {
                     match parse_binder_build_response(&line) {
                         Ok(build_response) => match build_response.phase {
                             mybinder::Phase::Ready { url, token, .. } => {
-                                println!("Binder is ready! URL: {}", url);
+                                println!("\n📘 {}\n", "Notebook server online!".bright_blue(),);
+
+                                println!("🔗 URL: {}", url.bold());
 
                                 remote_server = Some(RemoteServer {
                                     base_url: url,
@@ -65,23 +67,20 @@ fn app_main(cx: &mut AppContext) {
                                 );
                                 break;
                             }
-                            mybinder::Phase::Built {
-                                message,
-                                image_name,
-                            } => {
+                            mybinder::Phase::Built { message, .. } => {
                                 println!(
-                                    "📦 Binder built: {}",
-                                    message.as_ref().unwrap_or(&"".to_string()).bright_green()
+                                    "📦 {}",
+                                    message.as_ref().unwrap_or(&"".to_string()).bright_cyan()
                                 );
 
-                                if let Some(image_name) = image_name {
-                                    println!("📦 Binder image name: {}", image_name.bright_green());
-                                }
+                                // if let Some(image_name) = image_name {
+                                //     println!("📦 Binder image name: {}", image_name.green());
+                                // }
                             }
                             mybinder::Phase::Launching { message } => {
                                 println!(
-                                    "🚀 Binder launching: {}",
-                                    message.as_ref().unwrap_or(&"".to_string()).bright_green()
+                                    "{}",
+                                    message.as_ref().unwrap_or(&"".to_string()).dimmed()
                                 );
                             }
                             mybinder::Phase::Waiting { message } => {
@@ -124,10 +123,14 @@ fn app_main(cx: &mut AppContext) {
         let remote_server =
             remote_server.ok_or(anyhow::anyhow!("Binder did not start successfully"))?;
 
+        println!();
+
         let kernel_launch_request = KernelLaunchRequest {
             name: "python".to_string(),
             path: None,
         };
+
+        println!("{}", "🌽 Launching kernel".bright_yellow());
 
         let kernel_launch_request = serde_json::to_string(&kernel_launch_request)?;
 
@@ -152,6 +155,8 @@ fn app_main(cx: &mut AppContext) {
 
         let kernel_id = response.id;
 
+        println!("{}", "🌽 Kernel launched".bright_yellow());
+
         let (ws, _ws_response) = remote_server.connect_to_kernel(&kernel_id).await?;
 
         let (mut w, mut r) = ws.split();
@@ -165,7 +170,17 @@ fn app_main(cx: &mut AppContext) {
                             jupyter_protocol::JupyterMessageContent::ExecuteResult(
                                 execute_result,
                             ) => {
-                                println!("💻 {:?}", execute_result.data.content);
+                                let content = execute_result.data.content;
+                                let media = content.first();
+
+                                let result = match media {
+                                    Some(jupyter_protocol::MediaType::Plain(text)) => text,
+                                    _ => "🤷 Unknown media type",
+                                };
+
+                                assert_eq!(result, "4");
+
+                                println!("✅ executed code successfully");
 
                                 return cx.update(|cx| {
                                     cx.quit();
@@ -174,10 +189,10 @@ fn app_main(cx: &mut AppContext) {
                             jupyter_protocol::JupyterMessageContent::Status(status) => {
                                 match status.execution_state {
                                     jupyter_protocol::ExecutionState::Idle => {
-                                        println!("{}", "kernel idle".dimmed());
+                                        println!("🌽 {}", "kernel idle".dimmed());
                                     }
                                     jupyter_protocol::ExecutionState::Busy => {
-                                        println!("{}", "kernel busy".bright_magenta());
+                                        println!("🌽 {}", "kernel busy".bright_magenta());
                                     }
                                 }
                             }
@@ -193,9 +208,7 @@ fn app_main(cx: &mut AppContext) {
         })
         .detach();
 
-        cx.background_executor()
-            .timer(Duration::from_millis(500))
-            .await;
+        println!("{}", "🌽 Executing code".bright_yellow());
 
         w.send(
             ExecuteRequest {
