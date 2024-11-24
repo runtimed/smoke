@@ -8,16 +8,11 @@ jobs:
   setup:
     uses: ./.github/workflows/setup.yml
 
-  build:
+  smoke:
     needs: setup
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libxkbcommon-dev libxkbcommon-x11-dev
       - name: Build
         run: cargo build --verbose
       - name: Run
