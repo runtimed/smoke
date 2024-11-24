@@ -30,7 +30,8 @@ fn app_main(cx: &mut AppContext) {
 
         println!(
             "{}",
-            "🔗 Connected to Binder, processing response..."
+            "🔗 Connected to Binder, processing response...\n"
+                .bold()
                 .bright_green()
                 .dimmed()
         );
@@ -49,9 +50,12 @@ fn app_main(cx: &mut AppContext) {
                     match parse_binder_build_response(&line) {
                         Ok(build_response) => match build_response.phase {
                             mybinder::Phase::Ready { url, token, .. } => {
-                                println!("\n📘 {}\n", "Notebook server online!".bright_blue(),);
+                                println!(
+                                    "\n📘 {}\n",
+                                    "Notebook server online!".bright_blue().bold(),
+                                );
 
-                                println!("🔗 URL: {}", url.bold());
+                                println!("🔗 URL: {}", url.bold().underline());
 
                                 remote_server = Some(RemoteServer {
                                     base_url: url,
@@ -180,7 +184,7 @@ fn app_main(cx: &mut AppContext) {
 
                                 assert_eq!(result, "4");
 
-                                println!("✅ executed code successfully");
+                                println!("✅ Executed code successfully");
 
                                 return cx.update(|cx| {
                                     cx.quit();
@@ -189,10 +193,10 @@ fn app_main(cx: &mut AppContext) {
                             jupyter_protocol::JupyterMessageContent::Status(status) => {
                                 match status.execution_state {
                                     jupyter_protocol::ExecutionState::Idle => {
-                                        println!("🌽 {}", "kernel idle".dimmed());
+                                        println!("🌽 {}", "idle".dimmed());
                                     }
                                     jupyter_protocol::ExecutionState::Busy => {
-                                        println!("🌽 {}", "kernel busy".bright_magenta());
+                                        println!("🌽 {}", "busy".bright_magenta().dimmed());
                                     }
                                 }
                             }
@@ -226,6 +230,8 @@ fn app_main(cx: &mut AppContext) {
         cx.background_executor()
             .timer(Duration::from_millis(500))
             .await;
+
+        w.close().await?;
 
         anyhow::bail!("Failed to execute code");
 
