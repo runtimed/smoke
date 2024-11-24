@@ -5,7 +5,11 @@ on:
     - cron: "37 * * * *"
 
 jobs:
-  collect_and_commit:
+  setup:
+    uses: ./.github/workflows/setup.yml
+
+  build:
+    needs: setup
     runs-on: ubuntu-latest
 
     steps:
