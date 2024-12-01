@@ -69,7 +69,9 @@ fn app_main(cx: &mut AppContext) {
                                     "😲 Binder failed: {:?}",
                                     message.as_ref().map(|m| m.bright_red())
                                 );
-                                break;
+                                return cx.update(|cx| {
+                                    cx.quit();
+                                });
                             }
                             mybinder::Phase::Built { message, .. } => {
                                 println!(
