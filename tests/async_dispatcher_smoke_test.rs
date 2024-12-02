@@ -1,38 +1,40 @@
-use async_dispatcher::{set_dispatcher, Dispatcher, Runnable};
-use gpui::{AppContext, PlatformDispatcher};
-
-fn zed_dispatcher(cx: &mut AppContext) -> impl Dispatcher {
-    struct ZedDispatcher {
-        dispatcher: Arc<dyn PlatformDispatcher>,
-    }
-
-    // PlatformDispatcher is _super_ close to the same interface we put in
-    // async-dispatcher, except for the task label in dispatch. Later we should
-    // just make that consistent so we have this dispatcher ready to go for
-    // other crates in Zed.
-    impl Dispatcher for ZedDispatcher {
-        fn dispatch(&self, runnable: Runnable) {
-            self.dispatcher.dispatch(runnable, None)
-        }
-
-        fn dispatch_after(&self, duration: Duration, runnable: Runnable) {
-            self.dispatcher.dispatch_after(duration, runnable);
-        }
-    }
-
-    ZedDispatcher {
-        dispatcher: cx.background_executor().dispatcher.clone(),
-    }
-}
-
 #[cfg(test)]
 mod test {
+    use std::{sync::Arc, time::Duration};
+
     use runtimelib::{ConnectionInfo, JupyterMessageContent};
 
     use jupyter_protocol::{ExecuteRequest, JupyterKernelspec, JupyterMessage, ReplyStatus};
 
+    use async_dispatcher::{set_dispatcher, Dispatcher, Runnable};
+    use gpui::{PlatformDispatcher, TestAppContext};
+
+    fn zed_dispatcher(cx: &mut TestAppContext) -> impl Dispatcher {
+        struct ZedDispatcher {
+            dispatcher: Arc<dyn PlatformDispatcher>,
+        }
+
+        // PlatformDispatcher is _super_ close to the same interface we put in
+        // async-dispatcher, except for the task label in dispatch. Later we should
+        // just make that consistent so we have this dispatcher ready to go for
+        // other crates in Zed.
+        impl Dispatcher for ZedDispatcher {
+            fn dispatch(&self, runnable: Runnable) {
+                self.dispatcher.dispatch(runnable, None)
+            }
+
+            fn dispatch_after(&self, duration: Duration, runnable: Runnable) {
+                self.dispatcher.dispatch_after(duration, runnable);
+            }
+        }
+
+        ZedDispatcher {
+            dispatcher: cx.background_executor.dispatcher.clone(),
+        }
+    }
+
     #[gpui::test]
-    async fn async_dispatcher_smoke_test(cx: &mut gpui::TestAppContext) -> anyhow::Result<()> {
+    async fn async_dispatcher_smoke_test(cx: &mut TestAppContext) {
         set_dispatcher(zed_dispatcher(cx));
 
         // Set up connection info
@@ -51,7 +53,11 @@ mod test {
 
         let connection_path = "/tmp/connection_info.json";
 
-        std::fs::write(connection_path, serde_json::to_string(&connection_info)?)?;
+        std::fs::write(
+            connection_path,
+            serde_json::to_string(&connection_info).unwrap(),
+        )
+        .unwrap();
 
         let kernelspec = JupyterKernelspec {
             argv: vec![
@@ -78,31 +84,30 @@ mod test {
             }
         }
 
-        dbg!("noice");
-
+        dbg!("we are in");
         let mut process = cmd
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .stdin(std::process::Stdio::piped())
             .kill_on_drop(true)
-            .spawn();
-        cx.run_until_parked();
-
-        dbg!("noice");
+            .spawn()
+            .unwrap();
 
         let session_id = uuid::Uuid::new_v4().to_string();
 
-        let mut iopub_socket =
-            runtimelib::create_client_iopub_connection(&connection_info, "", &session_id).await?;
-        dbg!("noice");
+        dbg!("Creating iopub socket");
 
-        cx.run_until_parked();
+        let mut iopub_socket =
+            runtimelib::create_client_iopub_connection(&connection_info, "", &session_id)
+                .await
+                .unwrap();
+
+        dbg!("Creating shell socket");
 
         let mut shell_socket =
-            runtimelib::create_client_shell_connection(&connection_info, &session_id).await?;
-        cx.run_until_parked();
-
-        dbg!("noice");
+            runtimelib::create_client_shell_connection(&connection_info, &session_id)
+                .await
+                .unwrap();
 
         // Create a simple execute request
         let execute_request = ExecuteRequest::new("print('🐍 '*3)".to_string());
@@ -121,9 +126,9 @@ mod test {
             }
         });
 
-        shell_socket.send(execute_request).await?;
+        shell_socket.send(execute_request).await.unwrap();
 
-        let reply = shell_socket.read().await?;
+        let reply = shell_socket.read().await.unwrap();
 
         match reply.content {
             JupyterMessageContent::ExecuteReply(reply) => {
@@ -137,10 +142,6 @@ mod test {
 
         iopub_task.await;
 
-        // Here you would normally send the request to the kernel and handle the response
-        // For the sake of this smoke test, we'll just print a success message
-        println!("Successfully set up async dispatcher runtime with a Python kernel");
-
-        Ok(())
+        process.kill().unwrap();
     }
 }
