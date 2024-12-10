@@ -57,6 +57,9 @@ fn app_main(cx: &mut AppContext) {
 
                                 println!("🔗 URL: {}", url.bold().underline());
 
+                                println!("export JUPYTER_SERVER={}", url);
+                                println!("export JUPYTER_TOKEN={}", token);
+
                                 remote_server = Some(RemoteServer {
                                     base_url: url,
                                     token,
