@@ -13,6 +13,8 @@ use mybinder::parse_binder_build_response;
 use reqwest_client::ReqwestClient;
 
 fn app_main(cx: &mut App) {
+    gpui_tokio::init(cx);
+
     let http_client = Arc::new(
         ReqwestClient::proxy_and_user_agent(None, "github.com/runtimed/smoke")
             .expect("could not start HTTP client"),
@@ -164,7 +166,11 @@ fn app_main(cx: &mut App) {
 
         println!("{}", "🌽 Kernel launched".bright_yellow());
 
-        let (ws, _ws_response) = remote_server.connect_to_kernel(&kernel_id).await?;
+        let ws = gpui_tokio::Tokio::spawn(cx, async move {
+            let (ws, _ws_response) = remote_server.connect_to_kernel(&kernel_id).await?;
+            anyhow::Ok(ws)
+        })?
+        .await??;
 
         let (mut w, mut r) = ws.split();
 
