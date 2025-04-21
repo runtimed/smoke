@@ -4,7 +4,7 @@ use std::{sync::Arc, time::Duration};
 use futures::{
     io::BufReader, AsyncBufReadExt as _, AsyncReadExt as _, SinkExt as _, StreamExt as _,
 };
-use gpui::{App, AppContext, AsyncAppContext};
+use gpui::{App, Application};
 use http_client::{AsyncBody, HttpClient, Request};
 use jupyter_protocol::ExecuteRequest;
 use jupyter_websocket_client::{KernelLaunchRequest, RemoteServer};
@@ -12,14 +12,14 @@ use mybinder::parse_binder_build_response;
 
 use reqwest_client::ReqwestClient;
 
-fn app_main(cx: &mut AppContext) {
+fn app_main(cx: &mut App) {
     let http_client = Arc::new(
         ReqwestClient::proxy_and_user_agent(None, "github.com/runtimed/smoke")
             .expect("could not start HTTP client"),
     );
     cx.set_http_client(http_client.clone());
 
-    cx.spawn(|cx: AsyncAppContext| async move {
+    cx.spawn(async move |cx| {
         let response = http_client
             .get(
                 "https://mybinder.org/build/gh/binder-examples/conda_environment/HEAD",
@@ -168,7 +168,7 @@ fn app_main(cx: &mut AppContext) {
 
         let (mut w, mut r) = ws.split();
 
-        cx.spawn(|cx| async move {
+        cx.spawn(async move |cx| {
             while let Some(message) = r.next().await {
                 match message {
                     Ok(message) => {
@@ -245,5 +245,5 @@ fn app_main(cx: &mut AppContext) {
 }
 
 fn main() {
-    App::new().run(app_main);
+    Application::new().run(app_main);
 }
